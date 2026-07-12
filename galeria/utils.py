@@ -24,8 +24,8 @@ def gerar_hash(caminho_arquivo):
 
 def extrai_metadados(caminho_arquivo):
 
-    dados = {"celular", None,
-             "data", None}
+    dados = {"celular": None,
+             "data": None}
 
     try:
         imagem = Image.open(caminho_arquivo)
