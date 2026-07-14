@@ -11,17 +11,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("pasta_origem", type=str, help="caminho completo com suas fotos originais")
-        
+        parser.add_argument("--destino",type=str, help = "Nome da subpasta que ficará dentro da pasta media", default=["miniatura"],nargs="+")
+
     def handle(self, *args, **kwargs):
         pasta_origem = kwargs["pasta_origem"]
-
-        self.stdout.write(self.style.SUCCESS(f"iniciando varredura na pasta {pasta_origem}"))
-
-        pasta_destino_miniaturas = os.path.join('media', 'miniaturas')
-
         fotos_salvas = 0
         fotos_ignoradas = 0
         extensoes_validas = ('.jpg', '.jpeg', '.png')
+
+        subpasta = " ".join(kwargs["destino"])
+        pasta_destino_miniaturas = os.path.join("media", subpasta)
+        self.stdout.write(self.style.SUCCESS(f"iniciando varredura na pasta {pasta_origem}"))
 
         for diretorio_atual, subdiretorios, arquivos in os.walk(pasta_origem):
             for nome_arquivo in arquivos:
@@ -54,7 +54,7 @@ class Command(BaseCommand):
                     caminho_miniatura = os.path.join(pasta_destino_miniaturas, nome_miniatura)
 
                     sucesso_miniatura = cria_miniatura(caminho_completo, caminho_miniatura)
-                    caminho_salvar = f"miniaturas/{nome_miniatura}" if sucesso_miniatura else ""
+                    caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
 
                     # CORREÇÃO: Salvando usando os nomes exatos do seu models.py
                     Foto.objects.create(
