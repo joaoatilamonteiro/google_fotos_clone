@@ -3,6 +3,9 @@ from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS
 from datetime import datetime
 import os
+import cv2
+from pillow_heif import register_heif_opener 
+register_heif_opener()
 
 def gerar_hash(caminho_arquivo):
     #gera identifacador para nao ter fotos repetidas, ele le a imagem byte por byte e gera um hash unico.
@@ -52,7 +55,7 @@ def extrai_metadados(caminho_arquivo):
         print(f"deu o erro {erro}")
     return dados
 
-def cria_miniatura(caminho_arquivo, caminho_arquivo_dest, tamanho = (400,400)):
+def cria_miniatura_foto(caminho_arquivo, caminho_arquivo_dest, tamanho = (400, 400)):
     try:
         imagem = Image.open(caminho_arquivo)
 
@@ -64,8 +67,20 @@ def cria_miniatura(caminho_arquivo, caminho_arquivo_dest, tamanho = (400,400)):
 
         return True
 
-
-
     except Exception as erro:
         print(f"deu um erro ai, erro {erro}")
+        return False
+
+def cria_miniatura_video(caminho_arquivo, caminho_arquivo_dest, tamanho =(400, 400)):
+    try:
+        video = cv2.VideoCapture(caminho_arquivo)
+        sucesso,frame = video.read()
+
+        if sucesso:
+            frame_dimensionado = cv2.resize(frame,tamanho)
+            cv2.imwrite(caminho_arquivo_dest, frame_dimensionado)
+        video.release()
+        return sucesso
+    except Exception as e:
+        print(f"erro {e}")
         return False
