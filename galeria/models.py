@@ -2,11 +2,14 @@ from django.db import models
 
 
 #criando o modelo da tabela do sql
-class Foto(models.Model):
+class Midia(models.Model):
     id_hash_arquivo = models.CharField(max_length=64, unique=True)
-
     caminho_original = models.CharField(max_length=500)
     caminho_thumb = models.CharField(max_length=500)
+
+    #criacao de coluna para videos
+    tipo = models.CharField(max_length=10, default='')
+    duracao = models.FloatField(null= True, blank=True)
 
     #metadados
     data = models.DateTimeField(null=True, blank=True)
@@ -29,7 +32,7 @@ class pessoa(models.Model):
 class rosto(models.Model):
     assinatura = models.CharField(max_length=100)
 
-    foto = models.ForeignKey(Foto, on_delete=models.CASCADE, related_name="rostos")
+    foto = models.ForeignKey(Midia, on_delete=models.CASCADE, related_name="rostos")
     pessoa = models.ForeignKey(pessoa, on_delete=models.SET_NULL, null=True, blank=True, related_name="rostos")
 
     def __str__(self):

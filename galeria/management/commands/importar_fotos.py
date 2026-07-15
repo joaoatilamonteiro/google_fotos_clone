@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.utils.timezone import make_aware
-from galeria.models import Foto
+from galeria.models import Midia
 from galeria.utils import gerar_hash, extrai_metadados, cria_miniatura
 
 
@@ -36,7 +36,7 @@ class Command(BaseCommand):
                         continue
 
                     # CORREÇÃO: Buscando pelo nome correto da coluna (id_hash_arquivo)
-                    if Foto.objects.filter(id_hash_arquivo=hash_foto).exists():
+                    if Midia.objects.filter(id_hash_arquivo=hash_foto).exists():
                         self.stdout.write(self.style.WARNING(f"Duplicata ignorada: {nome_arquivo}"))
                         fotos_ignoradas += 1
                         continue
@@ -45,7 +45,8 @@ class Command(BaseCommand):
 
                     data_captura = dados_exif.get('data')
                     if not data_captura:
-                        data_captura = datetime.now()
+                        timestamp_arquivo = os.path.getctime(caminho_completo)
+                        data_captura = datetime.fromtimestamp(timestamp_arquivo)
 
                     if data_captura.tzinfo is None:
                         data_captura = make_aware(data_captura)
@@ -57,7 +58,7 @@ class Command(BaseCommand):
                     caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
 
                     # CORREÇÃO: Salvando usando os nomes exatos do seu models.py
-                    Foto.objects.create(
+                    Midia.objects.create(
                         caminho_original=caminho_completo,
                         caminho_thumb=caminho_salvar,  # Antes era 'miniatura'
                         id_hash_arquivo=hash_foto,  # Antes era 'hash_arquivo'
@@ -71,3 +72,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("\n--- VARREDURA CONCLUÍDA ---"))
         self.stdout.write(self.style.SUCCESS(f"Novas fotos no sistema: {fotos_salvas}"))
         self.stdout.write(self.style.WARNING(f"Duplicatas barradas: {fotos_ignoradas}"))
+        self.stdout.write(self.style.WARNING(f"Caminho completo da pasta: {pasta_origem}"))
+
+        data_atual = datetime.now().strftime("%d%m%Y_%H%M%S")
+        nome_relatorio = f"relatorio_{subpasta}.txt"
+
+        with open(nome_relatorio, "w+", encoding="utf-8") as arquivo:
+            arquivo.write("--- RELATÓRIO DE IMPORTAÇÃO ---\n")
+            arquivo.write(f"Data da execução: {data_atual}\n")
+            arquivo.write(f"Caminho mapeado: {pasta_origem}\n")
+            arquivo.write(f"Fotos importadas com sucesso: {fotos_salvas}\n")
+            arquivo.write(f"Fotos ignoradas (duplicadas): {fotos_ignoradas}\n")
+            arquivo.write("-------------------------------\n")
+        self.stdout.write(self.style.SUCCESS(f"\n[!] Relatório salvo como: {nome_relatorio} na raiz do projeto."))
