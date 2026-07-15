@@ -4,7 +4,8 @@ from PIL.ExifTags import TAGS
 from datetime import datetime
 import os
 import cv2
-from pillow_heif import register_heif_opener 
+from pillow_heif import register_heif_opener
+from pymediainfo import MediaInfo
 register_heif_opener()
 
 def gerar_hash(caminho_arquivo):
@@ -25,13 +26,16 @@ def gerar_hash(caminho_arquivo):
         return None
 
 
-def extrai_metadados(caminho_arquivo):
+def extrai_metadados_foto(caminho_foto):
 
     dados = {"celular": None,
-             "data": None}
+             "data": None,
+             "largura_pixel": None,
+             "altura_pixel": None,
+             "orientacao": None}
 
     try:
-        imagem = Image.open(caminho_arquivo)
+        imagem = Image.open(caminho_foto)
         exif_bruto = imagem.getexif() #ele pega os codigos exif para descobrir a data e o celular
 
         if not exif_bruto:
@@ -51,8 +55,39 @@ def extrai_metadados(caminho_arquivo):
             data_string = exif.get('DateTimeOriginal', exif.get('DateTime'))
             dados['data'] = datetime.strptime(data_string, '%Y:%m:%d %H:%M:%S')
 
+        if "ImageWidth" in exif:
+            dados["largura_pixel"] = int(exif["ImageWidth"])
+        if "ImageLength" in exif:
+            dados["altura_pixel"] = int(exif["ImageLength"])
+
+        if dados["largura_pixel"] and dados["altura_pixel"]:
+            if dados["largura_pixel"] > dados["altura_pixel"]:
+                dados["orientacao"] = "Deitado"
+            elif dados["altura_pixel"] > dados["largura_pixel"]:
+                dados["orientacao"] = "Em pé"
+            elif dados["altura_pixel"] == dados["largura_pixel"]:
+                dados["orientacao"] = "Foto quadrada"
+
     except Exception as erro:
         print(f"deu o erro {erro}")
+    return dados
+
+def extrai_metadados_video(caminho_video):
+    dados = {"caminho_original": None,
+             "data":None,
+             "celular": None,
+             "duracao":None}
+
+    try:
+        media_info = MediaInfo.parse(caminho_video)
+        for video in media_info.tracks:
+            if video.track_type == "General":
+                dados["caminho_original"] = getattr(video, "complete_name", None)
+                dados["data"] = getattr(video, "encoded_date", None)
+                dados["celular"] =getattr(video, "performer", None)
+                dados["duracao"] = getattr(video, "duration", None)
+    except Exception as e:
+        print(f"erro ao processar")
     return dados
 
 def cria_miniatura_foto(caminho_arquivo, caminho_arquivo_dest, tamanho = (400, 400)):

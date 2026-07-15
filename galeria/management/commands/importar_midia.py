@@ -3,13 +3,13 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.utils.timezone import make_aware
 from galeria.models import Midia
-from galeria.utils import gerar_hash, extrai_metadados, cria_miniatura_foto, cria_miniatura_video
+from galeria.utils import gerar_hash, extrai_metadados_foto, cria_miniatura_foto, cria_miniatura_video, extrai_metadados_video
 
 def processa_foto(caminho_original, hash_arquivo, subpasta):
-    pasta_destino_miniaturas = os.path.join("media", subpasta)
+    pasta_destino_miniaturas = os.path.join("media", subpasta,"foto")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
 
-    dados_exif = extrai_metadados(caminho_original)
+    dados_exif = extrai_metadados_foto(caminho_original)
     data_captura = dados_exif.get('data')
     if not data_captura:
         timestamp_arquivo = os.path.getctime(caminho_original)
@@ -25,6 +25,7 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
     caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
 
     Midia.objects.create(
+        tipo = "foto",
         caminho_original=caminho_original,
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
@@ -36,11 +37,18 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
 
 
 def processa_video(caminho_original, hash_arquivo, subpasta):
-    pasta_destino_miniaturas = os.path.join("media", subpasta)
+    pasta_destino_miniaturas = os.path.join("media", subpasta, "videos")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
 
-    timestamp_arquivo = os.path.getctime(caminho_original)
-    data_captura = datetime.fromtimestamp(timestamp_arquivo)
+    metadados = extrai_metadados_video(caminho_original)
+
+    # Verifica se a data existe e se é uma string antes de tentar usar o [:19]
+    if metadados["data"] and isinstance(metadados["data"], str):
+        data_captura = datetime.strptime(metadados["data"][:19], '%Y-%m-%d %H:%M:%S')
+    else:
+        # Se for None, cai aqui no "Plano B" e pega a data do Windows
+        timestamp_arquivo = os.path.getctime(caminho_original)
+        data_captura = datetime.fromtimestamp(timestamp_arquivo)
 
     if data_captura.tzinfo is None:
         data_captura = make_aware(data_captura)
@@ -52,11 +60,12 @@ def processa_video(caminho_original, hash_arquivo, subpasta):
     caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
 
     Midia.objects.create(
+        tipo = "video",
         caminho_original=caminho_original,
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
         data=data_captura,
-        celular='Desconhecido'
+        celular=metadados["celular"] or "Desconhecido"
     )
 
     return os.path.basename(caminho_original)
