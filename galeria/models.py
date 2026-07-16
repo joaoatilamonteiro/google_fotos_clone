@@ -16,9 +16,9 @@ class Midia(models.Model):
     fuso_horario = models.CharField(max_length=50,null=True, blank=True )
     celular = models.CharField(max_length=50, null= True, blank= True)
 
-    #cordenada
-    latitude = models.FloatField(null=True, blank=True)
-    longitude = models.FloatField(null=True, blank=True)
+    largura = models.IntegerField(null=True,blank=True)
+    altura = models.IntegerField(null=True,blank=True)
+    orientacao = models.CharField(max_length=14, null=True, blank=True)
 
     def __str__(self):
         return f"Foto está no caminho {self.caminho_original}"

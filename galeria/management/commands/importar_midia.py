@@ -4,11 +4,13 @@ from django.core.management.base import BaseCommand
 from django.utils.timezone import make_aware
 from galeria.models import Midia
 from galeria.utils import gerar_hash, extrai_metadados_foto, cria_miniatura_foto, cria_miniatura_video, extrai_metadados_video
+import pytz
 
 def processa_foto(caminho_original, hash_arquivo, subpasta):
     pasta_destino_miniaturas = os.path.join("media", subpasta,"foto")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
 
+    #verificacao de dados
     dados_exif = extrai_metadados_foto(caminho_original)
     data_captura = dados_exif.get('data')
     if not data_captura:
@@ -16,8 +18,14 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
         data_captura = datetime.fromtimestamp(timestamp_arquivo)
 
     if data_captura.tzinfo is None:
-        data_captura = make_aware(data_captura)
 
+        if dados_exif.get("fuso_horario"):
+            fuso_correto = pytz.timezone(dados_exif.get("fuso_horario"))
+            data_captura = fuso_correto.localize(data_captura)
+        else:
+            data_captura = make_aware(data_captura)
+
+    #fim da verificacao
     nome_miniatura = f"{hash_arquivo}.jpg"
     caminho_miniatura = os.path.join(pasta_destino_miniaturas, nome_miniatura)
 
@@ -30,7 +38,11 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
         data=data_captura,
-        celular=dados_exif.get('celular')
+        celular=dados_exif.get('celular'),
+        largura = dados_exif.get("largura_pixel"),
+        altura = dados_exif.get("altura_pixel"),
+        orientacao = dados_exif.get("orientacao"),
+        fuso_horario = dados_exif.get("fuso_horario")
     )
 
     return os.path.basename(caminho_original)
@@ -40,11 +52,11 @@ def processa_video(caminho_original, hash_arquivo, subpasta):
     pasta_destino_miniaturas = os.path.join("media", subpasta, "videos")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
 
-    metadados = extrai_metadados_video(caminho_original)
+    dados_video = extrai_metadados_video(caminho_original)
 
     # Verifica se a data existe e se é uma string antes de tentar usar o [:19]
-    if metadados["data"] and isinstance(metadados["data"], str):
-        data_captura = datetime.strptime(metadados["data"][:19], '%Y-%m-%d %H:%M:%S')
+    if dados_video["data"] and isinstance(dados_video["data"], str):
+        data_captura = datetime.strptime(dados_video["data"][:19], '%Y-%m-%d %H:%M:%S')
     else:
         # Se for None, cai aqui no "Plano B" e pega a data do Windows
         timestamp_arquivo = os.path.getctime(caminho_original)
@@ -65,7 +77,10 @@ def processa_video(caminho_original, hash_arquivo, subpasta):
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
         data=data_captura,
-        celular=metadados["celular"] or "Desconhecido"
+        celular=dados_video.get("celular") or "Desconhecido",
+        altura=dados_video.get("altura_pixel"),
+        largura=dados_video.get("largura_pixel"),
+        duracao = dados_video.get("duracao")
     )
 
     return os.path.basename(caminho_original)

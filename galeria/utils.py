@@ -1,11 +1,13 @@
 import hashlib
 from PIL import Image, ImageOps
-from PIL.ExifTags import TAGS
+from PIL.ExifTags import TAGS, GPSTAGS
 from datetime import datetime
 import os
 import cv2
 from pillow_heif import register_heif_opener
 from pymediainfo import MediaInfo
+from timezonefinder import TimezoneFinder
+
 register_heif_opener()
 
 def gerar_hash(caminho_arquivo):
@@ -32,7 +34,10 @@ def extrai_metadados_foto(caminho_foto):
              "data": None,
              "largura_pixel": None,
              "altura_pixel": None,
-             "orientacao": None}
+             "orientacao": None,
+             "latitude":None,
+             "longitude":None,
+             "fuso_horario":None}
 
     try:
         imagem = Image.open(caminho_foto)
@@ -68,6 +73,38 @@ def extrai_metadados_foto(caminho_foto):
             elif dados["altura_pixel"] == dados["largura_pixel"]:
                 dados["orientacao"] = "Foto quadrada"
 
+        gps_ifd = exif_bruto.get_ifd(34853)
+        if gps_ifd:
+            gps_dados = {}
+            for tag_id, valor in gps_ifd.items():
+                # Usa o GPSTAGS em vez do TAGS normal
+                nome_tag = GPSTAGS.get(tag_id, tag_id)
+                gps_dados[nome_tag] = valor
+            if "GPSLatitude" in gps_dados and "GPSLongitude" in gps_dados:
+                latitude = gps_dados["GPSLatitude"]
+                longitude = gps_dados["GPSLongitude"]
+
+                latitude_ref = gps_dados.get('GPSLatitudeRef', 'N')
+                longitude_ref = gps_dados.get('GPSLongitudeRef', 'E')
+
+                lat_decimal = float(latitude[0]) + (float(latitude[1]) / 60.0) + (float(latitude[2]) / 3600.0)
+                if latitude_ref == 'S':
+                    lat_decimal = -lat_decimal
+
+                # Convertendo Longitude (Graus, Minutos, Segundos -> Decimal)
+                lon_decimal = float(longitude[0]) + (float(longitude[1]) / 60.0) + (float(longitude[2]) / 3600.0)
+                if longitude_ref == 'W':
+                    lon_decimal = -lon_decimal
+
+                dados["latitude"] = lat_decimal
+                dados["longitude"] = lon_decimal
+
+                tf = TimezoneFinder()
+                nome_fuso = tf.timezone_at(lng=lon_decimal, lat=lat_decimal)
+                dados["fuso_horario"] = nome_fuso
+
+
+
     except Exception as erro:
         print(f"deu o erro {erro}")
     return dados
@@ -76,7 +113,9 @@ def extrai_metadados_video(caminho_video):
     dados = {"caminho_original": None,
              "data":None,
              "celular": None,
-             "duracao":None}
+             "duracao":None,
+             "largura_pixel":None,
+             "altura_pixel":None}
 
     try:
         media_info = MediaInfo.parse(caminho_video)
@@ -86,6 +125,10 @@ def extrai_metadados_video(caminho_video):
                 dados["data"] = getattr(video, "encoded_date", None)
                 dados["celular"] =getattr(video, "performer", None)
                 dados["duracao"] = getattr(video, "duration", None)
+
+            if video.track_type == "Video":
+                dados["largura_pixel"] = getattr(video, "width", None)
+                dados["altura_pixel"] = getattr(video, "height", None)
     except Exception as e:
         print(f"erro ao processar")
     return dados
