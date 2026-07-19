@@ -1,0 +1,21 @@
+<!-- O Django vai repetir esse bloco para cada foto DENTRO DO LOTE (page_obj) -->
+{% for midia in page_obj %}
+
+    <!-- MÁGICA DO HTMX: Se for a ÚLTIMA foto desse lote e tiver mais páginas... -->
+    {% if forloop.last and page_obj.has_next %}
+        <div class="item-midia"
+             hx-get="?page={{ page_obj.next_page_number }}"
+             hx-trigger="revealed"
+             hx-swap="afterend">
+    {% else %}
+        <div class="item-midia">
+    {% endif %}
+
+        <!-- O conteúdo da foto continua igual -->
+        <img src="/media/{{ midia.caminho_thumb }}" alt="Miniatura">
+        {% if midia.local %}
+            <span class="localizacao">📍 {{ midia.local }}</span>
+        {% endif %}
+
+    </div>
+{% endfor %}

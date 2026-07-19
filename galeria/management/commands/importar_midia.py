@@ -2,17 +2,61 @@ import os
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.utils.timezone import make_aware
-from galeria.models import Midia
-from galeria.utils import gerar_hash, extrai_metadados_foto, cria_miniatura_foto, cria_miniatura_video, extrai_metadados_video
+from galeria.models import Midia, Pessoa
+from galeria.utils import gerar_hash, extrai_metadados_foto, cria_miniatura_foto, cria_miniatura_video, extrai_metadados_video, json_takeout_leitura
 import pytz
+import re
+import shutil
+
+
+def extrai_nome_wpp(nome_arquivo):
+    # 1. Caça o padrão WhatsApp: "WhatsApp Image 2026-04-19 at 21.00.44.jpeg"
+    match_wpp = re.search(r"(\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})", nome_arquivo)
+    if match_wpp:
+        data_str = f"{match_wpp.group(1)} {match_wpp.group(2)}"
+        try:
+            return datetime.strptime(data_str, "%Y-%m-%d %H.%M.%S")
+        except:
+            pass
+
+    # 2. Caça o padrão Câmera comum (Samsung/iPhone): "20260714_123255.heic"
+    match_padrao = re.search(r"(\d{8})_(\d{6})", nome_arquivo)
+    if match_padrao:
+        try:
+            return datetime.strptime(f"{match_padrao.group(1)}_{match_padrao.group(2)}", "%Y%m%d_%H%M%S")
+        except:
+            pass
+
+    return None
+
+def organiza_arquivo(caminho_antigo, data_captura):
+    ano = data_captura.strftime("%Y")
+    mes = data_captura.strftime("%m")
+    nome_arquivo = os.path.basename(caminho_antigo)
+
+    pasta_destino = os.path.join("media","originais",ano,mes)
+    os.makedirs(pasta_destino, exist_ok=True)
+    caminho_novo = os.path.join(pasta_destino, nome_arquivo)
+
+    if not os.path.exists(caminho_novo):
+        shutil.copy2(caminho_antigo,caminho_novo)
+    return f"originais/{ano}/{mes}/{nome_arquivo}"
 
 def processa_foto(caminho_original, hash_arquivo, subpasta):
-    pasta_destino_miniaturas = os.path.join("media", subpasta,"foto")
+    pasta_destino_miniaturas = os.path.join("media", subpasta,"fotos")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
 
+    dados_takeout = json_takeout_leitura(caminho_original)
     #verificacao de dados
     dados_exif = extrai_metadados_foto(caminho_original)
     data_captura = dados_exif.get('data')
+
+    if not data_captura:
+        data_captura = extrai_nome_wpp(os.path.basename(caminho_original))
+
+    if not data_captura:
+        data_captura = dados_takeout.get('data_captura')
+
     if not data_captura:
         timestamp_arquivo = os.path.getctime(caminho_original)
         data_captura = datetime.fromtimestamp(timestamp_arquivo)
@@ -24,17 +68,18 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
             data_captura = fuso_correto.localize(data_captura)
         else:
             data_captura = make_aware(data_captura)
+    caminho_salvo_banco = organiza_arquivo(caminho_original, data_captura)
 
     #fim da verificacao
     nome_miniatura = f"{hash_arquivo}.jpg"
     caminho_miniatura = os.path.join(pasta_destino_miniaturas, nome_miniatura)
 
     sucesso_miniatura = cria_miniatura_foto(caminho_original, caminho_miniatura)
-    caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
+    caminho_salvar = f"{subpasta}/fotos/{nome_miniatura}" if sucesso_miniatura else ""
 
     Midia.objects.create(
         tipo = "foto",
-        caminho_original=caminho_original,
+        caminho_original=caminho_salvo_banco,
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
         data=data_captura,
@@ -42,8 +87,15 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
         largura = dados_exif.get("largura_pixel"),
         altura = dados_exif.get("altura_pixel"),
         orientacao = dados_exif.get("orientacao"),
-        fuso_horario = dados_exif.get("fuso_horario")
+        fuso_horario = dados_exif.get("fuso_horario"),
+        local=dados_exif.get("local"),
+        pessoas = dados_takeout.get("pessoas")
     )
+    nomes_json = dados_takeout.get("pessoas")
+    if nomes_json:
+        for nome_pessoa in nomes_json:
+            # get_or_create procura a pessoa. Se não existir, ele cria na hora!
+            Pessoa.objects.get_or_create(nome=nome_pessoa)
 
     return os.path.basename(caminho_original)
 
@@ -51,6 +103,7 @@ def processa_foto(caminho_original, hash_arquivo, subpasta):
 def processa_video(caminho_original, hash_arquivo, subpasta):
     pasta_destino_miniaturas = os.path.join("media", subpasta, "videos")
     os.makedirs(pasta_destino_miniaturas, exist_ok=True)
+    dados_takeout = json_takeout_leitura(caminho_original)
 
     dados_video = extrai_metadados_video(caminho_original)
 
@@ -58,30 +111,45 @@ def processa_video(caminho_original, hash_arquivo, subpasta):
     if dados_video["data"] and isinstance(dados_video["data"], str):
         data_captura = datetime.strptime(dados_video["data"][:19], '%Y-%m-%d %H:%M:%S')
     else:
-        # Se for None, cai aqui no "Plano B" e pega a data do Windows
+        data_captura = None
+
+    if not data_captura:
+        data_captura = dados_takeout.get('data_captura')
+
+    if not data_captura:
+        data_captura = extrai_nome_wpp(os.path.basename(caminho_original))
+    if not data_captura:
         timestamp_arquivo = os.path.getctime(caminho_original)
         data_captura = datetime.fromtimestamp(timestamp_arquivo)
 
     if data_captura.tzinfo is None:
         data_captura = make_aware(data_captura)
+    caminho_salvo_banco = organiza_arquivo(caminho_original, data_captura)  # <--- AQUI NA FOTO TEM
 
     nome_miniatura = f"{hash_arquivo}.jpg"
     caminho_miniatura = os.path.join(pasta_destino_miniaturas, nome_miniatura)
 
     sucesso_miniatura = cria_miniatura_video(caminho_original, caminho_miniatura)
-    caminho_salvar = f"{subpasta}/{nome_miniatura}" if sucesso_miniatura else ""
+    caminho_salvar = f"{subpasta}/videos/{nome_miniatura}" if sucesso_miniatura else ""
 
     Midia.objects.create(
         tipo = "video",
-        caminho_original=caminho_original,
+        caminho_original=caminho_salvo_banco,
         caminho_thumb=caminho_salvar,
         id_hash_arquivo=hash_arquivo,
         data=data_captura,
         celular=dados_video.get("celular") or "Desconhecido",
         altura=dados_video.get("altura_pixel"),
         largura=dados_video.get("largura_pixel"),
-        duracao = dados_video.get("duracao")
+        duracao = dados_video.get("duracao"),
+        pessoas = dados_takeout.get("pessoas")
     )
+
+    nomes_json = dados_takeout.get("pessoas")
+    if nomes_json:
+        for nome_pessoa in nomes_json:
+            # get_or_create procura a pessoa. Se não existir, ele cria na hora!
+            Pessoa.objects.get_or_create(nome=nome_pessoa)
 
     return os.path.basename(caminho_original)
 

@@ -15,25 +15,27 @@ class Midia(models.Model):
     data = models.DateTimeField(null=True, blank=True)
     fuso_horario = models.CharField(max_length=50,null=True, blank=True )
     celular = models.CharField(max_length=50, null= True, blank= True)
+    local = models.CharField(max_length=200, null=True, blank=True)
 
     largura = models.IntegerField(null=True,blank=True)
     altura = models.IntegerField(null=True,blank=True)
     orientacao = models.CharField(max_length=14, null=True, blank=True)
+    pessoas = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f"Foto está no caminho {self.caminho_original}"
 
-class pessoa(models.Model):
+class Pessoa(models.Model):
     nome = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         return self.nome if self.nome else f"Pessoa desconhecida #{self.id}"
 
-class rosto(models.Model):
+class Rosto(models.Model):
     assinatura = models.CharField(max_length=100)
 
     foto = models.ForeignKey(Midia, on_delete=models.CASCADE, related_name="rostos")
-    pessoa = models.ForeignKey(pessoa, on_delete=models.SET_NULL, null=True, blank=True, related_name="rostos")
+    pessoa = models.ForeignKey(Pessoa, on_delete=models.SET_NULL, null=True, blank=True, related_name="rostos")
 
     def __str__(self):
         return f"Rosto na foto {self.foto.id}"

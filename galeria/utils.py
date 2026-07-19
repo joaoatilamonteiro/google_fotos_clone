@@ -1,14 +1,75 @@
-import hashlib
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from datetime import datetime
-import os
-import cv2
 from pillow_heif import register_heif_opener
 from pymediainfo import MediaInfo
 from timezonefinder import TimezoneFinder
+from geopy.geocoders import Nominatim
+import json, os, cv2, time, hashlib
 
 register_heif_opener()
+tf = TimezoneFinder()
+geolocator = Nominatim(user_agent="galeria_adomo")
+
+def json_takeout_leitura(caminho_original):
+    caminho_json = f"{caminho_original}.json"
+
+    dados = {
+        "pessoas":None,
+        "data_captura":None,
+        "latitude": None,
+        "longitude": None,
+    }
+
+    caminho_padrao_1 = f"{caminho_original}.json"
+    caminho_padrao_2 = f"{caminho_original}.supplemental-metadata.json"
+    caminho_padrao_3 = f"{os.path.splitext(caminho_original)[0]}.json"
+
+    caminho_json = None
+
+    # Descobre qual dos 3 arquivos realmente existe na pasta
+    if os.path.exists(caminho_padrao_2):
+        caminho_json = caminho_padrao_2
+    elif os.path.exists(caminho_padrao_1):
+        caminho_json = caminho_padrao_1
+    elif os.path.exists(caminho_padrao_3):
+        caminho_json = caminho_padrao_3
+
+    # Se não achou nenhum dos 3, aborta a missão e retorna vazio
+    if not caminho_json:
+        return dados
+
+    if not os.path.exists(caminho_json):
+        caminho_json_alternativo = f"{os.path.splitext(caminho_original)[0]}.json"
+        if os.path.exists(caminho_json_alternativo):
+            caminho_json = caminho_json_alternativo
+        else:
+            return dados
+
+    try:
+        with open(caminho_json, "r", encoding="utf-8") as f:
+            conteudo = json.load(f)
+            if "people" in conteudo:
+                nomes = [p["name"] for p in conteudo["people"] if "name" in p]
+                if nomes:
+                    dados["pessoas"] = nomes  # Fica: "Arinda Mãe, Adriano Pai"
+
+                # 2. Resgata a Data Exata
+            if "photoTakenTime" in conteudo and "timestamp" in conteudo["photoTakenTime"]:
+                ts = int(conteudo["photoTakenTime"]["timestamp"])
+                dados["data_captura"] = datetime.fromtimestamp(ts)
+
+                # 3. Resgata o GPS (Se não for zero)
+            if "geoData" in conteudo:
+                lat = conteudo["geoData"].get("latitude", 0.0)
+                lon = conteudo["geoData"].get("longitude", 0.0)
+                if lat != 0.0 and lon != 0.0:
+                    dados["latitude"] = lat
+                    dados["longitude"] = lon
+            print(f"✅ [JSON LIDO] Metadados extras extraídos de: {os.path.basename(caminho_json)}")
+    except Exception as e:
+        print(f"não foi possivel ler {caminho_json}\nerro: {e}")
+    return dados
 
 def gerar_hash(caminho_arquivo):
     #gera identifacador para nao ter fotos repetidas, ele le a imagem byte por byte e gera um hash unico.
@@ -37,7 +98,8 @@ def extrai_metadados_foto(caminho_foto):
              "orientacao": None,
              "latitude":None,
              "longitude":None,
-             "fuso_horario":None}
+             "fuso_horario":None,
+             "local": None}
 
     try:
         imagem = Image.open(caminho_foto)
@@ -99,9 +161,22 @@ def extrai_metadados_foto(caminho_foto):
                 dados["latitude"] = lat_decimal
                 dados["longitude"] = lon_decimal
 
-                tf = TimezoneFinder()
                 nome_fuso = tf.timezone_at(lng=lon_decimal, lat=lat_decimal)
                 dados["fuso_horario"] = nome_fuso
+
+                try:
+                    time.sleep(1.2)
+                    lugar = geolocator.reverse((lat_decimal,lon_decimal),exactly_one=True)
+                    if lugar:
+                        endereco = lugar.raw.get('address', {})
+                        cidade = endereco.get("city") or endereco.get("town") or endereco.get('village') or endereco.get('municipality')
+                        estado = endereco.get('state')
+                        pais = endereco.get('country')
+                        infos = [cidade,estado,pais]
+                        infos_validas = [p for p in infos if p is not None]
+                        dados["local"] = "/".join(infos_validas)
+                except Exception as e:
+                    print(f"erro {e}")
 
 
 
@@ -130,12 +205,15 @@ def extrai_metadados_video(caminho_video):
                 dados["largura_pixel"] = getattr(video, "width", None)
                 dados["altura_pixel"] = getattr(video, "height", None)
     except Exception as e:
-        print(f"erro ao processar")
+        print(f"erro ao processar {e}")
     return dados
 
 def cria_miniatura_foto(caminho_arquivo, caminho_arquivo_dest, tamanho = (400, 400)):
     try:
         imagem = Image.open(caminho_arquivo)
+
+        if imagem.mode in ("RGBA", "P"):
+            imagem = imagem.convert("RGB")
 
         miniatura_quad = ImageOps.fit(imagem, tamanho, Image.Resampling.LANCZOS)
 
