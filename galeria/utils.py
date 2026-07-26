@@ -212,6 +212,8 @@ def cria_miniatura_foto(caminho_arquivo, caminho_arquivo_dest, tamanho = (400, 4
     try:
         imagem = Image.open(caminho_arquivo)
 
+        imagem = ImageOps.exif_transpose(imagem)
+
         if imagem.mode in ("RGBA", "P"):
             imagem = imagem.convert("RGB")
 

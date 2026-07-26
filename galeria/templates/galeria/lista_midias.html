@@ -11,8 +11,12 @@
         <div class="item-midia">
     {% endif %}
 
-        <!-- O conteúdo da foto continua igual -->
-        <img src="/media/{{ midia.caminho_thumb }}" alt="Miniatura">
+        <!-- Apenas UMA imagem, já com o evento de clique do Modal -->
+    <img src="/media/{{ midia.caminho_thumb }}"
+         alt="Foto"
+         onclick="abrirModal('/media/{{ midia.caminho_original }}', '/media/{{ midia.caminho_thumb }}', '{% if midia.caminho_web %}/media/{{ midia.caminho_web }}{% endif %}')">
+
+
         {% if midia.local %}
             <span class="localizacao">📍 {{ midia.local }}</span>
         {% endif %}

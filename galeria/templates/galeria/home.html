@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minha Galeria</title>
-    <!-- NOVO: Importando a biblioteca do HTMX -->
+
+    <!-- Bibliotecas Necessárias -->
     <script src="https://unpkg.com/htmx.org@1.9.11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -42,23 +45,157 @@
             text-align: center;
             display: block;
         }
+
+        /* Estilo escuro do fundo do Modal */
+        .modal {
+          display: none; /* Escondido por padrão */
+          position: fixed; /* Fica fixo na tela */
+          z-index: 1000; /* Fica por cima de tudo */
+          padding-top: 50px;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.9); /* Fundo preto quase sólido */
+        }
+
+        /* A imagem/vídeo em si, centralizada e adaptável */
+        .modal-conteudo {
+          margin: auto;
+          display: block;
+          max-width: 90%;
+          max-height: 85vh; /* Respeita a altura da tela */
+          border-radius: 8px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+          animation: zoom 0.3s ease-in-out; /* Efeito de surgimento */
+        }
+
+        /* O botão de fechar (X) */
+        .fechar {
+          position: absolute;
+          top: 15px;
+          right: 35px;
+          color: #f1f1f1;
+          font-size: 40px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: 0.3s;
+        }
+
+        .fechar:hover, .fechar:focus {
+          color: #bbb;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        /* Animação do Zoom */
+        @keyframes zoom {
+          from {transform: scale(0.1)}
+          to {transform: scale(1)}
+        }
     </style>
 </head>
 <body>
 
     <h1>Minhas Memórias</h1>
 
-    <!-- Atualizamos a variável para pegar a contagem total do banco de dados -->
     <p style="text-align: center; color: #888;">
         Exibindo {{ total_midias }} fotos e vídeos
     </p>
 
     <div class="grade-fotos">
-
-        <!-- Pede pro Django incluir o primeiro lote de fotos aqui dentro -->
+        <!-- Pede pro Django incluir o primeiro lote de mídias aqui dentro -->
         {% include 'galeria/lista_midias.html' %}
-
     </div>
+
+    <!-- O Modal Lightbox Híbrido -->
+    <div id="meuModal" class="modal" onclick="fecharModal(event)">
+      <span class="fechar" onclick="fecharModal(event)">&times;</span>
+
+      <!-- Tag para FOTOS -->
+      <img class="modal-conteudo" id="imagemModal" style="transition: filter 0.3s ease; display: none;">
+
+      <!-- Tag para VÍDEOS -->
+    <!-- Tag para VÍDEOS -->
+      <video class="modal-conteudo" id="videoModal" controls style="display: none; background-color: black; width: 100%; height: 85vh; object-fit: contain;"></video>
+    </div>
+
+<script>
+    function abrirModal(urlOriginal, urlThumb, urlWeb) {
+        var modal = document.getElementById("meuModal");
+        var imgModal = document.getElementById("imagemModal");
+        var vidModal = document.getElementById("videoModal");
+
+        modal.style.display = "block";
+        var extensao = urlOriginal.split('.').pop().toLowerCase();
+
+        // LÓGICA PARA VÍDEOS
+        if (extensao === 'mp4' || extensao === 'mov') {
+            imgModal.style.display = "none";
+            vidModal.style.display = "block";
+
+            // Se a urlWeb existir (não estiver em branco), toca o proxy leve H.264. Senão, tenta tocar o original.
+            vidModal.src = urlWeb ? urlWeb : urlOriginal;
+
+            vidModal.load();
+            vidModal.play().catch(function(error) {
+                console.log("Erro no player de vídeo:", error);
+            });
+        }
+    // LÓGICA PARA FOTOS
+    else {
+        vidModal.style.display = "none"; // Esconde o player de vídeo
+        vidModal.pause();
+        imgModal.style.display = "block"; // Mostra a tag de foto
+
+        imgModal.src = urlThumb; // Mostra a miniatura quadrada imediatamente
+        imgModal.style.filter = "blur(8px)"; // Desfoca a miniatura
+
+        if (extensao === 'heic') {
+            // Conversão do HEIC
+            fetch(urlOriginal)
+                .then((res) => res.blob())
+                .then((blob) => heic2any({
+                    blob: blob,
+                    toType: "image/jpeg",
+                    quality: 0.6
+                }))
+                .then((conversionResult) => {
+                    var url = URL.createObjectURL(conversionResult);
+                    imgModal.src = url; // Troca pelo JPEG retrato gigante
+                    imgModal.style.filter = "none"; // Remove o desfoque
+                })
+                .catch((e) => {
+                    console.log("Erro na conversão:", e);
+                    imgModal.style.filter = "none";
+                });
+        } else {
+            // FOTOS COMUNS (JPG/PNG)
+            var imgAlta = new Image();
+            imgAlta.onload = function() {
+                imgModal.src = this.src; // Troca pela foto original gigante
+                imgModal.style.filter = "none"; // Remove o desfoque
+            };
+            imgAlta.src = urlOriginal;
+        }
+    }
+  }
+
+  // Fecha o modal garantindo que o vídeo não continue tocando o áudio
+  function fecharModal(event) {
+    // Impede de fechar se o usuário clicar dentro do vídeo para pausar/avançar
+    if (event && event.target.tagName === 'VIDEO') return;
+
+    var modal = document.getElementById("meuModal");
+    var imgModal = document.getElementById("imagemModal");
+    var vidModal = document.getElementById("videoModal");
+
+    modal.style.display = "none";
+    vidModal.pause(); // Para o som do vídeo ao fechar
+    vidModal.src = "";
+    imgModal.src = "";
+  }
+</script>
 
 </body>
 </html>

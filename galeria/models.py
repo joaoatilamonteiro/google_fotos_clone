@@ -21,6 +21,7 @@ class Midia(models.Model):
     altura = models.IntegerField(null=True,blank=True)
     orientacao = models.CharField(max_length=14, null=True, blank=True)
     pessoas = models.CharField(max_length=255, null=True, blank=True)
+    caminho_web = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f"Foto está no caminho {self.caminho_original}"
