@@ -1,21 +1,89 @@
 import os
+import shutil
 import time
-import subprocess
 from django.core.management.base import BaseCommand
 from galeria.models import Midia
 from django.conf import settings
+import platform
+import subprocess
+import urllib.request
+import zipfile
 
 
 class Command(BaseCommand):
     help = "Gera proxies H.264 para vídeos e limpa os arquivos de cache antigos"
 
-    def handle(self, *args, **options):
-        # =======================================================
-        # ÁREA DE TESTE: RESET DE 1 HORA
-        # Para desativar a exclusão, basta comentar a linha abaixo:
-        self.limpar_cache_antigo(horas=1)
-        # =======================================================
+    def baixar_ffmpeg_win(self):
+        self.stdout.write(self.style.WARNING("FFmpeg não encontrado. A transferir e instalar automaticamente para Windows..."))
+        url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        zip_path = "ffmpeg_temp.zip"
+        extract_dir = "ffmpeg_extraido"
 
+        try:
+            self.stdout.write("Baixando o zip, isso pode demorar um pouco...")
+            urllib.request.urlretrieve(url, zip_path, reporthook=self.mostrar_progresso)
+            print()
+
+            self.stdout.write("Extraindo...")
+            with zipfile.ZipFile(zip_path,"r") as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            os.makedirs("codec_ffmpeg", exist_ok=True)
+
+            for root, dirs, files in os.walk(extract_dir):
+                for file in files:
+                    if file in ["ffmpeg.exe","ffprobe.exe"]:
+                        caminho_origem = os.path.join(root, file)
+                        caminho_destino = os.path.join("codec_ffmpeg",file)
+                        shutil.copy2(caminho_origem, caminho_destino)
+
+            self.stdout.write(self.style.SUCCESS("FFmpeg instaldo com sucesso!"))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"ERRO ao transferir ffmpeg\nerro:{e}"))
+        finally:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            if os.path.exists(extract_dir):
+                shutil.rmtree(extract_dir)
+
+    def mostrar_progresso(self, bloco_num, tamanho_bloco, tamanho_total):
+        baixado = bloco_num * tamanho_bloco
+        porcentagem = baixado * 100 / tamanho_total
+        if porcentagem > 100:
+            porcentagem = 100
+        print(f"\rBaixando o zip... {porcentagem:.1f}% concluído", end="")
+
+    def obter_executavel(self, nome_base):
+        if platform.system() == "Windows":
+            caminho_local = os.path.join("codec_ffmpeg",f"{nome_base}.exe")
+            if not os.path.exists(caminho_local):
+                self.baixar_ffmpeg_win()
+            return caminho_local
+        else:
+            # No Linux, testa se o programa está instalado no sistema
+            resultado = subprocess.run(['which', nome_base], capture_output=True, text=True)
+            if not resultado.stdout.strip():
+                self.stdout.write(self.style.ERROR(
+                    f"⚠️ {nome_base} não encontrado. No Linux, execute no terminal: sudo apt install ffmpeg"))
+            return nome_base
+
+    def obter_codec_video(self, caminho_arquivo):
+        comando = [
+            self.obter_executavel('ffmpeg'),
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            caminho_arquivo
+        ]
+        try:
+            resultado = subprocess.run(comando, capture_output=True, text=True, check=True)
+            return resultado.stdout.strip().lower()
+        except Exception as e:
+            return 'hevc'
+
+    def handle(self, *args, **options):
+        self.limpar_cache_antigo(horas=1)
         videos = Midia.objects.filter(tipo="video")
         pasta_proxy = os.path.join(settings.MEDIA_ROOT, 'web_proxies')
         os.makedirs(pasta_proxy, exist_ok=True)
@@ -37,13 +105,16 @@ class Command(BaseCommand):
                 self.stdout.write(f"Convertendo {nome_base} para H.264...")
 
                 comando = [
-                    'ffmpeg',
+                    self.obter_executavel('ffmpeg'),
                     '-i', caminho_orig,
-                    '-vcodec', 'libx264',  # Formato universal da web
-                    '-preset', 'fast',  # Conversão rápida
-                    '-crf', '28',  # Qualidade equilibrada
-                    '-acodec', 'aac',  # Áudio universal
-                    '-y',  # Sobrescrever se necessário
+                    '-vcodec', 'libx264',
+                    '-preset', 'veryfast',
+                    '-crf', '32',
+                    '-vf', 'scale=-2:1080',
+                    '-acodec', 'aac',
+                    '-b:a', '96k',
+                    '-movflags', '+faststart',
+                    '-y',
                     caminho_proxy_full
                 ]
 
@@ -63,7 +134,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Processo de proxies finalizado!"))
 
     def limpar_cache_antigo(self, horas):
-        """Apaga vídeos web criados há mais de 'X' horas e limpa do banco de dados"""
         pasta_proxy = os.path.join(settings.MEDIA_ROOT, 'web_proxies')
         if not os.path.exists(pasta_proxy):
             return
