@@ -8,18 +8,21 @@
              hx-trigger="revealed"
              hx-swap="afterend">
     {% else %}
-        <div class="item-midia">
+        <div class = "item-midia">
     {% endif %}
 
-        <!-- Apenas UMA imagem, já com o evento de clique do Modal -->
-    <img src="/media/{{ midia.caminho_thumb }}"
-         alt="Foto"
-         onclick="abrirModal('/media/{{ midia.caminho_original }}', '/media/{{ midia.caminho_thumb }}', '{% if midia.caminho_web %}/media/{{ midia.caminho_web }}{% endif %}')">
-
+        <div class = "wrapper-miniatura">
+            <img src ="/media/{{ midia.caminho_thumb }}"
+                 alt="Foto"
+                 onclick="abrirModal('/media/{{ midia.caminho_original }}', '/media/{{ midia.caminho_thumb }}', '{% if midia.caminho_web %}/media/{{ midia.caminho_web }}{% endif %}')">
+            {% if midia.tipo == 'video' %}
+                <span class = "tag-video">▶Vídeo</span>
+            {% endif %}
+        </div>
 
         {% if midia.local %}
-            <span class="localizacao">📍 {{ midia.local }}</span>
+                <span class = "localizacao">📍 {{ midia.local }}</span>
         {% endif %}
 
-    </div>
+        </div>
 {% endfor %}
