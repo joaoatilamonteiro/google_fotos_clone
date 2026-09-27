@@ -27,6 +27,26 @@
             gap: 15px;
             padding: 10px;
         }
+        .wrapper-miniatura{
+            position: relative;
+            display: block;
+        }
+
+        .tag-video{
+            position: absolute;
+            bottom: 8px;   /* Distância da borda de baixo */
+            right: 8px;    /* Distância da borda da direita */
+            background-color: rgba(0, 0, 0, 0.75); /* Fundo preto semi-transparente */
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            pointer-events: none; /* Garante que a tag não bloqueie o clique do mouse na foto */
+        }
         .item-midia img {
             width: 100%;
             height: 200px;
