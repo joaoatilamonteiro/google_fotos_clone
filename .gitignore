@@ -15,4 +15,5 @@ Thumbs.db
 .env
 *.pdf
 teste.py
-ffmpeg.exe
+codec_ffmpeg/
+relatorio/
