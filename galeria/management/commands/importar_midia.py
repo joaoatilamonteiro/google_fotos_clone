@@ -9,6 +9,7 @@ import re
 import shutil
 
 
+
 def extrai_nome_wpp(nome_arquivo):
     # 1. Caça o padrão WhatsApp: "WhatsApp Image 2026-04-19 at 21.00.44.jpeg"
     match_wpp = re.search(r"(\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})", nome_arquivo)
@@ -16,6 +17,21 @@ def extrai_nome_wpp(nome_arquivo):
         data_str = f"{match_wpp.group(1)} {match_wpp.group(2)}"
         try:
             return datetime.strptime(data_str, "%Y-%m-%d %H.%M.%S")
+        except:
+            pass
+
+#caça o padrao do wpp só que em portugues (Ex: "Imagem do WhatsApp de 2025-07-20 à(s) 17.55.33")
+    match_wpp_pt = re.search(r"(\d{4}-\d{2}-\d{2}) à\(s\) (\d{2}\.\d{2}\.\d{2})", nome_arquivo)
+    if match_wpp_pt:
+        try:
+            return datetime.strptime(f"{match_wpp_pt.group(1)} {match_wpp_pt.group(2)}", "%Y-%m-%d %H.%M.%S")
+        except:
+            pass
+#caça outro padrao do wpp (Ex: "IMG-20250720-WA0013")
+    match_wpp_img = re.search(r"IMG-(\d{8})-WA", nome_arquivo)
+    if match_wpp_img:
+        try:
+            return datetime.strptime(f"{match_wpp_img.group(1)} 12:00:00", "%Y%m%d %H:%M:%S")
         except:
             pass
 
@@ -224,7 +240,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(f"Caminho mapeado: {pasta_origem}"))
 
         data_atual = datetime.now().strftime("%d%m%Y_%H%M%S")
-        nome_relatorio = f"relatorio_{subpasta}.txt"
+        os.makedirs("relatorio", exist_ok = True)
+        nome_relatorio = os.path.join("relatorio",f"relatorio_{subpasta}.txt")
 
         with open(nome_relatorio, "w+", encoding="utf-8") as arquivo_txt:
             arquivo_txt.write("--- RELATÓRIO MULTIMÍDIA DE IMPORTAÇÃO ---\n")
@@ -235,4 +252,4 @@ class Command(BaseCommand):
             arquivo_txt.write(f"Arquivos ignorados (duplicados/inválidos): {itens_ignorados}\n")
             arquivo_txt.write("------------------------------------------\n")
 
-        self.stdout.write(self.style.SUCCESS(f"\n[!] Relatório salvo como: {nome_relatorio} na raiz do projeto."))
+        self.stdout.write(self.style.SUCCESS(f"\n[!] Relatório salvo em: {nome_relatorio}"))
