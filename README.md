@@ -1,8 +1,8 @@
-# 📸 AdomoFotos — Galeria de Fotos e Vídeos
+# AdomoFotos — Galeria de Fotos e Vídeos
 
 Um "Google Fotos" caseiro, feito em Django, para organizar, importar e visualizar fotos e vídeos armazenados localmente — com extração automática de metadados (EXIF, GPS, pessoas marcadas no Google Takeout), geração de miniaturas e proxies de vídeo otimizados para web.
 
-## ✨ Funcionalidades
+## Funcionalidades
 
 - **Importação automática de mídias** a partir de uma pasta do HD (`importar_midia`), com:
   - Cálculo de hash SHA-256 para evitar duplicatas.
@@ -16,7 +16,7 @@ Um "Google Fotos" caseiro, feito em Django, para organizar, importar e visualiza
 - **Galeria web** com rolagem infinita (HTMX), exibindo fotos e vídeos em grade, com modal (lightbox) para visualização em tamanho grande, suporte a conversão de HEIC no navegador e player de vídeo.
 - **Cadastro de pessoas** reconhecidas automaticamente a partir dos metadados do Google Takeout.
 
-## 🛠️ Stack Técnica
+## Stack Técnica
 
 - **Backend:** Python + Django 6.0
 - **Banco de dados:** SQLite
@@ -29,7 +29,7 @@ Um "Google Fotos" caseiro, feito em Django, para organizar, importar e visualiza
   - [TimezoneFinder](https://github.com/jannikmi/timezonefinder) — fuso horário a partir de coordenadas GPS
   - [Geopy](https://geopy.readthedocs.io/) (Nominatim) — geocodificação reversa (endereço a partir de GPS)
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 adomofotos/              # Configurações do projeto Django (settings, urls, wsgi/asgi)
@@ -47,13 +47,13 @@ manage.py
 reset.bat                 # Script (Windows) para resetar o banco e reimportar tudo
 ```
 
-## 🗃️ Modelo de Dados
+## Modelo de Dados
 
 - **Midia**: arquivo (foto ou vídeo) com hash único, caminhos (original, miniatura, proxy web), metadados (data, celular, dimensões, orientação, fuso horário, local) e pessoas associadas.
 - **Pessoa**: nome de uma pessoa reconhecida nos metadados.
 - **Rosto**: relação entre uma mídia e uma pessoa (estrutura preparada para reconhecimento facial).
 
-## 🚀 Como Rodar
+## Como Rodar
 
 ### Pré-requisitos
 
@@ -93,7 +93,7 @@ python manage.py runserver
 
 Depois é só acessar `http://127.0.0.1:8000/` no navegador.
 
-## ▶️ Primeira Execução (Windows)
+## Primeira Execução (Windows)
 
 Para facilitar a primeira execução (ou um reset completo do zero) no Windows, use o script `reset.bat`, que automatiza: apagar o banco antigo, recriar as migrações, importar as mídias e gerar os proxies de vídeo.
 
@@ -111,9 +111,9 @@ reset.bat
 Informe o caminho completo da pasta com as fotos/videos: C:\Users\seu_usuario\Fotos
 ```
 
-> ⚠️ Este script **apaga o banco de dados atual** (`db.sqlite3`) antes de recriar tudo — use-o apenas quando quiser começar do zero, não em uma importação incremental do dia a dia. Para adicionar novas fotos sem apagar o banco, use apenas `python manage.py importar_midia ...` e `python manage.py gerar_proxies` manualmente.
+> Este script **apaga o banco de dados atual** (`db.sqlite3`) antes de recriar tudo — use-o apenas quando quiser começar do zero, não em uma importação incremental do dia a dia. Para adicionar novas fotos sem apagar o banco, use apenas `python manage.py importar_midia ...` e `python manage.py gerar_proxies` manualmente.
 
-## 📝 Notas
+## Notas
 
 - O projeto está configurado com `DEBUG = True` e uma `SECRET_KEY` de desenvolvimento — **não usar em produção sem antes revisar as configurações de segurança** (`ALLOWED_HOSTS`, `DEBUG`, `SECRET_KEY`, etc.).
 - Os arquivos de mídia processados ficam salvos em `media/`, fora do controle de versão.
