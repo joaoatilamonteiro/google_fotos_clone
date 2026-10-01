@@ -241,7 +241,7 @@ class Command(BaseCommand):
 
         data_atual = datetime.now().strftime("%d%m%Y_%H%M%S")
         os.makedirs("relatorio", exist_ok = True)
-        nome_relatorio = os.path.join("relatorio",f"relatorio_{subpasta}.txt")
+        nome_relatorio = os.path.join("relatorio",f"relatorio_{subpasta}-{data_atual}.txt")
 
         with open(nome_relatorio, "w+", encoding="utf-8") as arquivo_txt:
             arquivo_txt.write("--- RELATÓRIO MULTIMÍDIA DE IMPORTAÇÃO ---\n")
