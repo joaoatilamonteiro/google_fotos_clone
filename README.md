@@ -1,8 +1,8 @@
-# AdomoFotos — Galeria de Fotos e Vídeos
+# 📸 AdomoFotos — Galeria de Fotos e Vídeos
 
 Um "Google Fotos" caseiro, feito em Django, para organizar, importar e visualizar fotos e vídeos armazenados localmente — com extração automática de metadados (EXIF, GPS, pessoas marcadas no Google Takeout), geração de miniaturas e proxies de vídeo otimizados para web.
 
-## Funcionalidades
+## ✨ Funcionalidades
 
 - **Importação automática de mídias** a partir de uma pasta do HD (`importar_midia`), com:
   - Cálculo de hash SHA-256 para evitar duplicatas.
@@ -71,12 +71,10 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Instale as dependências
-pip install django pillow pillow-heif opencv-python pymediainfo timezonefinder geopy pytz
+pip install -r requirements.txt
 ```
 
-> ⚠️ Este projeto ainda não possui um arquivo `requirements.txt`. Recomenda-se criar um com `pip freeze > requirements.txt` após instalar as dependências.
-
-### Configuração e execução
+### Configuração e execução (manual)
 
 ```bash
 # Aplique as migrações
@@ -95,9 +93,28 @@ python manage.py runserver
 
 Depois é só acessar `http://127.0.0.1:8000/` no navegador.
 
-No Windows, o script `reset.bat` automatiza todo esse fluxo (apaga o banco, recria, importa e gera proxies) para um caminho de pasta fixo — ajuste o caminho dentro do arquivo antes de usar.
+## ▶️ Primeira Execução (Windows)
+
+Para facilitar a primeira execução (ou um reset completo do zero) no Windows, use o script `reset.bat`, que automatiza: apagar o banco antigo, recriar as migrações, importar as mídias e gerar os proxies de vídeo.
+
+```powershell
+reset.bat "C:\caminho\para\suas\fotos" nome_do_lote
+```
+
+- **1º argumento** (obrigatório): caminho completo da pasta com as fotos/vídeos a importar. Se não for informado, o script pergunta o caminho interativamente.
+- **2º argumento** (opcional): nome do lote de importação, usado para organizar as miniaturas em `media/<nome_do_lote>/` e nomear o relatório gerado em `relatorio/`. Padrão: `importacao`.
+
+Exemplo interativo (sem argumentos):
+
+```powershell
+reset.bat
+Informe o caminho completo da pasta com as fotos/videos: C:\Users\seu_usuario\Fotos
+```
+
+> ⚠️ Este script **apaga o banco de dados atual** (`db.sqlite3`) antes de recriar tudo — use-o apenas quando quiser começar do zero, não em uma importação incremental do dia a dia. Para adicionar novas fotos sem apagar o banco, use apenas `python manage.py importar_midia ...` e `python manage.py gerar_proxies` manualmente.
 
 ## 📝 Notas
 
 - O projeto está configurado com `DEBUG = True` e uma `SECRET_KEY` de desenvolvimento — **não usar em produção sem antes revisar as configurações de segurança** (`ALLOWED_HOSTS`, `DEBUG`, `SECRET_KEY`, etc.).
 - Os arquivos de mídia processados ficam salvos em `media/`, fora do controle de versão.
+- O binário do FFmpeg é necessário para gerar os proxies de vídeo. No Windows, o comando `gerar_proxies` baixa e instala automaticamente em `codec_ffmpeg/` caso não encontre. No Linux, instale com `sudo apt install ffmpeg`.
